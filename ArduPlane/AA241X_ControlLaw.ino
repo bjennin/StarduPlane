@@ -5,6 +5,7 @@
 #include "AA241X_ControlLaw.h"
 #include "AA241X_aux.h"
 #include "PID_Controller.h"
+#include "HeadingController.h"
 
 /**** Helper Function Prototypes ****/
 static void       Limit(float &variable, float maximum, float minimum);
@@ -109,14 +110,14 @@ PidController airspeedController241X(SPD_2_SRV_P, // Proportional Gain
                                      5,           // Maximum Integral Term
                                      5);          // Maximum Derivative Term
 
-PidController headingController241X(HEAD_2_SRV_P, // Proportional Gain
-                                    HEAD_2_SRV_I, // Integral Gain
-                                    HEAD_2_SRV_D, // Derivative Gain
-                                    25,           // Maximum Controller Output
-                                    1,            // Maximum Integral Error
-                                    3,            // Maximum Derivative Error
-                                    5,            // Maximum Integral Term
-                                    5);           // Maximum Derivative Term
+HeadingController headingController241X(HEAD_2_SRV_P, // Proportional Gain
+                                        HEAD_2_SRV_I, // Integral Gain
+                                        HEAD_2_SRV_D, // Derivative Gain
+                                        25,           // Maximum Controller Output
+                                        1,            // Maximum Integral Error
+                                        3,            // Maximum Derivative Error
+                                        5,            // Maximum Integral Term
+                                        5);           // Maximum Derivative Term
                                     
 PidController altitudeController241X(ALT_HOLD_P,  // Proportional Gain
                                      ALT_HOLD_I,  // Integral Gain
@@ -231,7 +232,7 @@ static void AA241X_AUTO_FastLoop(void)
       // Heading Commands
       headingCommand += headingCommand*0.00174*(RC_roll - RC_Roll_Trim)/RC_Roll_Trim; // .0872 rad/s change rate based on 50 Hz
       headingController241X.SetReference(headingCommand);
-      headingControllerOut = headingController241X.Step(delta_t, ground_course);
+      headingControllerOut = -headingController241X.Step(delta_t, ground_course);
       Limit(headingControllerOut, bankAngleMax, bankAngleMin);
 
       // Roll Commands
@@ -244,7 +245,7 @@ static void AA241X_AUTO_FastLoop(void)
       // Heading Commands
       headingCommand  += headingCommand*0.00174*(RC_roll - RC_Roll_Trim)/RC_Roll_Trim; // .0872 rad/s change rate based on 50 Hz
       headingController241X.SetReference(headingCommand);
-      headingControllerOut = headingController241X.Step(delta_t, ground_course);
+      headingControllerOut = -headingController241X.Step(delta_t, ground_course);
       Limit(headingControllerOut, bankAngleMax, bankAngleMin);
 
       // Roll Commands
@@ -346,9 +347,14 @@ static void AA241X_AUTO_MediumLoop(void){
 
 
 // *****   AA241X Slow Loop - @ ~1Hz  *****  //
-static void AA241X_AUTO_SlowLoop(void){
+static void AA241X_AUTO_SlowLoop(void)
+{  
   controller_summary RollControllerSummary = rollController241X.GetControllerSummary();
   controller_summary PitchControllerSummary = pitchController241X.GetControllerSummary();
+  controller_summary HeadingControllerSummary = headingController241X.GetControllerSummary();    
+  
+  hal.console->printf_P(PSTR("\n Avg dT: %f \n"), delta_t_avg);
+  hal.console->printf_P(PSTR("\n Control Mode: %lu \n"), controlMode);
   
   /*
   // Debug Statements
@@ -376,13 +382,17 @@ static void AA241X_AUTO_SlowLoop(void){
   hal.console->printf_P(PSTR("RC_rudder: %f \n"), RC_rudder);
   */
   
-  hal.console->printf_P(PSTR("\n Avg dT: %f \n"), delta_t_avg);
-  hal.console->printf_P(PSTR("\n Control Mode: %lu \n"), controlMode);
   hal.console->printf_P(PSTR("\n Heading Command: %f \n"), headingCommand);
-  hal.console->printf_P(PSTR("\n Current Heading: %f \n"), ground_course);
+  hal.console->printf_P(PSTR("Current Heading: %f \n"), ground_course);
+  hal.console->printf_P(PSTR("Heading Error: %f \n"), HeadingControllerSummary.error);
+  //hal.console->printf_P(PSTR("Heading Integrated Error: %f \n"), HeadingControllerSummary.i_error);
+  //hal.console->printf_P(PSTR("Heading Derivative Error: %f \n"), HeadingControllerSummary.d_error);
+  hal.console->printf_P(PSTR("Heading Proportional Term: %f \n"), HeadingControllerSummary.p_term);
+  //hal.console->printf_P(PSTR("Heading Integral Term: %f \n"), HeadingControllerSummary.i_term);
+  //hal.console->printf_P(PSTR("Heading Derivative Term: %f \n"), HeadingControllerSummary.d_term);
+  hal.console->printf_P(PSTR("Heading Output: %f \n"), HeadingControllerSummary.output);
   hal.console->printf_P(PSTR("Bank Angle Command: %f \n"), headingControllerOut);
-  hal.console->printf_P(PSTR("Bank Angle Current: %f \n"), roll);
-  
+  hal.console->printf_P(PSTR("Bank Angle Current: %f \n"), roll);  
 };
 
 /**** Limit function to not exceed mechanical limits of the servos ****/

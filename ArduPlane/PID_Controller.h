@@ -23,7 +23,7 @@ class PidController
     void Initialize(float PGain, float IGain, float DGain);
     
     // Step the digital controller, pass in the control to update
-    float Step(float delta_t, float input_vars);
+    virtual float Step(float delta_t, float input_vars);
     
     // Set the PID reference
     void SetReference(float reference);
@@ -34,7 +34,7 @@ class PidController
     // Reset the standing error values
     void Reset(void);
     
- private:
+ protected:
     float mPGain;       // Proportional Gain of Controller
     float mIGain;       // Integral Gain of Controller
     float mDGain;       // Derivative Gain of Controller
