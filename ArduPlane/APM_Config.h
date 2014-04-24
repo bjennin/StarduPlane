@@ -26,14 +26,10 @@
 
 # define THROTTLE_OUT                   DISABLED
 
-# define CAMERA                         DISABLED
+# define CAMERA         DISABLED
 
-# define MOUNT                          DISABLED
+# define MOUNT          DISABLED
 
-# define CLI_ENABLED                    DISABLED
+# define GEOFENCE_ENABLED DISABLED
 
-# define GEOFENCE_ENABLED               DISABLED
-
-// disable HIL completely (for mission planner too!)
-#define HIL_PORT -1
-#define HIL_MODE HIL_MODE_DISABLED
+//#define DEFAULT_LOG_BITMASK   0x0

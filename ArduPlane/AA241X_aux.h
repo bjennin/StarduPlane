@@ -1,7 +1,6 @@
 #ifndef AA241X_AUX_H
 #define AA241X_AUX_H
 
-
 #define ENERGY_LIMIT   0.450*7.4*3600 // max energy in Joules allowed for the mission.  Above this energy consumption, the camera function stops returning snapshots
 
 // ***** AA241X FLIGHT VARIABLE DEFINITIONS  *****  //

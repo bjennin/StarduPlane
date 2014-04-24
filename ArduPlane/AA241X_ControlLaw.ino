@@ -19,7 +19,11 @@ static int32_t    my_signed_32_bit_variable = 10;  // integer numbers between âˆ
 static uint32_t   my_unsigned_32_bit_variable = 10;  // positive integer numbers between 0 and 4294967295
 
 /**** Control Mode ****/
-static uint32_t   controlMode = round(1*MODE_BIT_0 + 2*MODE_BIT_1); // Determine 1 of 4 automatic control modes
+static uint32_t   ROLL_STABILIZE_MODE = 1;
+static uint32_t   STABILIZE_MODE = 2;
+static uint32_t   HEADING_HOLD_MODE = 3;
+static uint32_t   FBW_MODE = 4;
+static uint32_t   controlMode = 1; // Determine automatic control mode
 
 /**** Time Variables ****/
 static uint32_t   numCalls    = 0;    // Number of times the AUTO loop has been called
@@ -32,12 +36,6 @@ static float airspeedCommand  = 14;   // 14 meters / second is default airspeed
 static float headingCommand   = 0;    // Go North
 static float rollCommand      = 0;    // Keep Level
 static float pitchCommand     = .122; // 7 degrees pitch
-
-/**** Outer Loop Command Minimums and Maximums ****/
-static float pitchCommandMax = .21;   // 12 degrees pitch
-static float pitchCommandMin = -.122; // -7 degrees pitch
-static float airspeedCommandMax = 20; // 20 meters / second
-static float airspeedCommandMin = 9;  // 9 meters / second
 
 /*************************** Mechanical Limit Variables ***********************************************
 
@@ -57,14 +55,22 @@ Each control surface has mechanical limits that should not be exceeded by either
 input) or the automatic flight system. These mechanical limits are what is defined in this section.
 
 --------------------------------------- Bixler 2 Mechanical Limits ----------------------------------*/
-float pitchMax  = 100; // Elevator Down
-float pitchMin  = 20;  // Elevator Up
-float rollMax   = 100; // Roll Left Aileron
-float rollMin   = 0;   // Roll Right Aileron
-float rudderMax = 100; // Left Rudder
-float rudderMin = 0;   // Right Rudder
-float throttleMax = 100; // Throttle Up
-float throttleMin = 0;   // Throttle Down
+static float pitchMax  = 100; // Elevator Down
+static float pitchMin  = 20;  // Elevator Up
+static float rollMax   = 100; // Roll Left Aileron
+static float rollMin   = 0;   // Roll Right Aileron
+static float rudderMax = 100; // Left Rudder
+static float rudderMin = 0;   // Right Rudder
+static float throttleMax = 100; // Throttle Up
+static float throttleMin = 0;   // Throttle Down
+
+/*------------------------------------ Navigation Loops Limits -------------------------------------*/
+static float bankAngleMax = .52;  // 30 degrees max
+static float bankAngleMin = -.52;  // -30 degrees min
+static float pitchAngleMax = .21;   // 12 degrees pitch
+static float pitchAngleMin = -0.122; // -7 degrees pitch
+static float airspeedCommandMax = 20; // 20 meters / second
+static float airspeedCommandMin = 9;  // 9 meters / second
 
 /**** PID Loops ****/
 PidController rollController241X(RLL_2_SRV_P, // Proportional Gain
@@ -121,26 +127,38 @@ PidController altitudeController241X(ALT_HOLD_P,  // Proportional Gain
                                      5,            // Maximum Integral Term
                                      5);           // Maximum Derivative Term                                    
                                  
+/**** PID Controller Outputs ****/
+// Inner Loop Command Signals, set by default to RC pilot commands
+float rollControllerOut = 0;
+float pitchControllerOut = 0;
+float rudderControllerOut = 0;
+  
+// Outer Loop Command Signals
+float airspeedControllerOut = 0;
+float headingControllerOut  = 0;
+float altitudeControllerOut = 0;
+  
+  
 // These functions are executed when control mode is in AUTO
 // Please read AA241X_aux.h for all necessary definitions and interfaces
 
 // *****   AA241X Fast Loop - @ ~50Hz   ***** //
-static void AA241X_AUTO_FastLoop(void)
+static void AA241X_AUTO_FastLoop(void) 
 {
   // Time between function calls
   float delta_t = (CPU_time_ms - Last_AUTO_stampTime_ms); // Get delta time between AUTO_FastLoop calls  
   
   // Inner Loop Command Signals, set by default to RC pilot commands
-  float rollControllerOut = RC_roll;
-  float pitchControllerOut = RC_pitch;
-  float rudderControllerOut = RC_rudder;
+  rollControllerOut = RC_roll - RC_Roll_Trim;
+  pitchControllerOut = RC_pitch - RC_Pitch_Trim;
+  rudderControllerOut = RC_rudder - RC_Rudder_Trim;
   
   // Outer Loop Command Signals
-  float airspeedControllerOut = 0;
-  float headingControllerOut  = 0;
-  float altitudeControllerOut = 0;
-  
-  // static struct snapshot mySnapShot = takeASnapshot();
+  airspeedControllerOut = 0;
+  headingControllerOut  = 0;
+  altitudeControllerOut = 0;
+
+//  static struct snapshot mySnapShot = takeASnapshot();
   
   // Checking if we've just switched to AUTO. If more than 100ms have gone past since last time in AUTO, then we are definitely just entering AUTO
   if (delta_t > 100)
@@ -168,7 +186,16 @@ static void AA241X_AUTO_FastLoop(void)
     airspeedCommand = Air_speed;
     
     // Determine control mode from bits in parameter list
-    controlMode = round(1*MODE_BIT_0 + 2*MODE_BIT_1);
+    if(MODE_SELECT > .5 && MODE_SELECT < 1.5){
+      controlMode = ROLL_STABILIZE_MODE;
+    }else if(MODE_SELECT > 1.5 && MODE_SELECT < 2.5){
+      controlMode = STABILIZE_MODE;
+    }else if(MODE_SELECT > 2.5 && MODE_SELECT < 3.5){
+      controlMode = HEADING_HOLD_MODE;
+    }else if(MODE_SELECT > 3.5 && MODE_SELECT < 4.5){
+      controlMode = FBW_MODE;
+    }
+ 
   }
   
   // Time Related Tracking
@@ -177,16 +204,15 @@ static void AA241X_AUTO_FastLoop(void)
   delta_t_avg  = delta_t_sum/numCalls;
   
   // Determine Inner Loop Commands Based on Control Mode
-  switch (controlMode)
+  if (controlMode == ROLL_STABILIZE_MODE)
   {
     // Keep Roll angle controlled based on RC pilot input (should be zero when stick is in center)
-    case ROLL_STABILIZE_MODE:
       rollCommand = (RC_roll-RC_Roll_Trim)*0.01*PI;
-      rollController241X.SetReference(rollCommand);
+      rollController241X.SetReference(0);//rollCommand);
       rollControllerOut = rollController241X.Step(delta_t, roll);
-    break;
+  }else if (controlMode == STABILIZE_MODE)
+  {
     // Keep Roll and Pitch angles controlled based on RC pilot input
-    case STABILIZE_MODE:
       // Roll Commands
       rollCommand = (RC_roll-RC_Roll_Trim)*0.01*PI;
       rollController241X.SetReference(rollCommand);
@@ -199,26 +225,28 @@ static void AA241X_AUTO_FastLoop(void)
       
       // Rudder Commands
       // rudderCommand = 
-    break;
+  }else if (controlMode == HEADING_HOLD_MODE)
+  {
     // Maintain Heading, RC pilot commands offset from heading that was saved
-    case HEADING_HOLD_MODE:
       // Heading Commands
       headingCommand += headingCommand*0.00174*(RC_roll - RC_Roll_Trim)/RC_Roll_Trim; // .0872 rad/s change rate based on 50 Hz
       headingController241X.SetReference(headingCommand);
       headingControllerOut = headingController241X.Step(delta_t, ground_course);
-      
+      Limit(headingControllerOut, bankAngleMax, bankAngleMin);
+
       // Roll Commands
       rollController241X.SetReference(headingControllerOut);
       rollControllerOut = rollController241X.Step(delta_t, roll); 
       
-    break;
+  }else if (controlMode == FBW_MODE)
+  {
     // Maintain heading, altitude, and airspeed RC pilot commands offsets from saved initial conditions
-    case FBW_MODE:
       // Heading Commands
       headingCommand  += headingCommand*0.00174*(RC_roll - RC_Roll_Trim)/RC_Roll_Trim; // .0872 rad/s change rate based on 50 Hz
       headingController241X.SetReference(headingCommand);
       headingControllerOut = headingController241X.Step(delta_t, ground_course);
-      
+      Limit(headingControllerOut, bankAngleMax, bankAngleMin);
+
       // Roll Commands
       rollController241X.SetReference(headingControllerOut);
       rollControllerOut = rollController241X.Step(delta_t, roll);
@@ -232,8 +260,8 @@ static void AA241X_AUTO_FastLoop(void)
       
       altitudeCommand += altitudeCommand*0.04*(RC_pitch - RC_Pitch_Trim)/RC_Pitch_Trim; // 2 m/s change rate based on 50 Hz
       altitudeController241X.SetReference(altitudeCommand);
-      altitudeControllerOut = headingController241X.Step(delta_t, altitude);
-      Limit(altitudeControllerOut, pitchCommandMax, pitchCommandMin);
+      altitudeControllerOut = altitudeController241X.Step(delta_t, altitude);
+      Limit(altitudeControllerOut, pitchAngleMax, pitchAngleMin);
       
       // Pitch Commands
       pitchController241X.SetReference(altitudeControllerOut);
@@ -243,11 +271,10 @@ static void AA241X_AUTO_FastLoop(void)
       Limit(airspeedCommand, airspeedCommandMax, airspeedCommandMin);
       airspeedController241X.SetReference(airspeedCommand);
       airspeedControllerOut = airspeedController241X.Step(delta_t, Air_speed);
-    break;
   }
   
   // Update Roll Servo Command  
-  if(controlMode)
+  if(controlMode == ROLL_STABILIZE_MODE ||controlMode == STABILIZE_MODE || controlMode == FBW_MODE || controlMode == HEADING_HOLD_MODE)
   {
     float rollOut    = RC_Roll_Trim + rollControllerOut;
     Limit(rollOut, rollMax, rollMin);
@@ -292,20 +319,34 @@ static void AA241X_AUTO_FastLoop(void)
   else
   {
     Throttle_servo   = RC_throttle;
-  }
+  }  
+  
 
-}; /* End AA241X_AUTO_FastLoop */
+};
+
+
+
+
 
 
 // *****   AA241X Medium Loop - @ ~10Hz  *****  //
-static void AA241X_AUTO_MediumLoop(void)
-{
+static void AA241X_AUTO_MediumLoop(void){
   // YOUR CODE HERE
+  
+
+
+  
+  
+  
+  
 };
 
+
+
+
+
 // *****   AA241X Slow Loop - @ ~1Hz  *****  //
-static void AA241X_AUTO_SlowLoop(void)
-{
+static void AA241X_AUTO_SlowLoop(void){
   controller_summary RollControllerSummary = rollController241X.GetControllerSummary();
   controller_summary PitchControllerSummary = pitchController241X.GetControllerSummary();
   
@@ -336,6 +377,12 @@ static void AA241X_AUTO_SlowLoop(void)
   */
   
   hal.console->printf_P(PSTR("\n Avg dT: %f \n"), delta_t_avg);
+  hal.console->printf_P(PSTR("\n Control Mode: %lu \n"), controlMode);
+  hal.console->printf_P(PSTR("\n Heading Command: %f \n"), headingCommand);
+  hal.console->printf_P(PSTR("\n Current Heading: %f \n"), ground_course);
+  hal.console->printf_P(PSTR("Bank Angle Command: %f \n"), headingControllerOut);
+  hal.console->printf_P(PSTR("Bank Angle Current: %f \n"), roll);
+  
 };
 
 /**** Limit function to not exceed mechanical limits of the servos ****/

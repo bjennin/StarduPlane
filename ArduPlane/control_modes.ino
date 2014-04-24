@@ -6,8 +6,6 @@ static void read_control_switch()
     static bool switch_debouncer;
     uint8_t switchPosition = readSwitch();
 
-    
-    
     // If switchPosition = 255 this indicates that the mode control channel input was out of range
     // If we get this value we do not want to change modes.
     if(switchPosition == 255) return;
@@ -22,8 +20,6 @@ static void read_control_switch()
         // only use signals that are less than 0.1s old.
         return;
     }
-    
-    
 
     // we look for changes in the switch position. If the
     // RST_SWITCH_CH parameter is set, then it is a switch that can be
@@ -67,9 +63,7 @@ static void read_control_switch()
 
 static uint8_t readSwitch(void)
 {
-  //return 1;  
-  
-  uint16_t pulsewidth = hal.rcin->read(g.flight_mode_channel - 1);
+    uint16_t pulsewidth = hal.rcin->read(g.flight_mode_channel - 1);
     if (pulsewidth <= 900 || pulsewidth >= 2200) return 255;            // This is an error condition
     if (pulsewidth > 1230 && pulsewidth <= 1360) return 1;
     if (pulsewidth > 1360 && pulsewidth <= 1490) return 2;

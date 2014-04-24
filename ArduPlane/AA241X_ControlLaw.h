@@ -1,20 +1,11 @@
 #ifndef AA241X_CONTROLLAW_H
 #define AA241X_CONTROLLAW_H
 
-// Different Control Modes
-typedef enum controlMode_t
-{
-  ROLL_STABILIZE_MODE,
-  STABILIZE_MODE,
-  HEADING_HOLD_MODE,
-  FBW_MODE
-};
-
 // NOTE: the parameter name has to have less than 14 characters! If not you get the error "initialize-string for array chars is too long"
 // My parameter 1
-#define MODE_BIT_0        g.aa241x_1      // Don't change g.aa241x_1 ! Replace my_param_1 with whatever name you want to access the parameter with.  See the example in ControlLaw.ino   
-#define AA241X_1_NAME     "AA241_BIT_0" // Don't change AA241X_1_NAME ! Replace my_paramName1 with whateve name you want to see on the Mission Planner GCS 
-#define AA241X_1_DEFAULT  0            // replace 10.0 with whatever default value you wante to this parameter to have, when reloading the code 
+#define MODE_SELECT       g.aa241x_1      // Don't change g.aa241x_1 ! Replace my_param_1 with whatever name you want to access the parameter with.  See the example in ControlLaw.ino   
+#define AA241X_1_NAME     "AA241_FLT_MODE" // Don't change AA241X_1_NAME ! Replace my_paramName1 with whateve name you want to see on the Mission Planner GCS 
+#define AA241X_1_DEFAULT  1.0            // replace 10.0 with whatever default value you wante to this parameter to have, when reloading the code 
 // My parameter 2
 #define MODE_BIT_1         g.aa241x_2
 #define AA241X_2_NAME     "AA241_BIT_1" 
