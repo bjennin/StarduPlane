@@ -225,16 +225,16 @@ static void AA241X_AUTO_FastLoop(void)
   if (controlMode == ROLL_STABILIZE_MODE)
   {
     // Keep Roll angle controlled based on RC pilot input (should be zero when stick is in center)
-      rollCommand = (RC_roll-RC_Roll_Trim)*0.01*PI;
+      rollCommand = -(RC_roll-RC_Roll_Trim)*0.01*PI;
       rollController241X.SetReference(0);//rollCommand);
-      rollControllerOut = rollController241X.Step(delta_t, roll);
+      rollControllerOut = -rollController241X.Step(delta_t, roll);
   }else if (controlMode == STABILIZE_MODE)
   {
     // Keep Roll and Pitch angles controlled based on RC pilot input
       // Roll Commands
-      rollCommand = (RC_roll-RC_Roll_Trim)*0.01*PI;
+      rollCommand = -(RC_roll-RC_Roll_Trim)*0.01*PI;
       rollController241X.SetReference(rollCommand);
-      rollControllerOut = rollController241X.Step(delta_t, roll);
+      rollControllerOut = -rollController241X.Step(delta_t, roll);
       
       // Pitch Commands
       pitchCommand = -(RC_pitch - RC_Pitch_Trim)*0.01*PI/4.0 + (7.0/180.0)*PI;
@@ -253,12 +253,12 @@ static void AA241X_AUTO_FastLoop(void)
         headingCommand += headingCommand*0.00174*(RC_roll - RC_Roll_Trim)/RC_Roll_Trim; // .0872 rad/s change rate based on 50 Hz
         headingController241X.SetReference(headingCommand);
       }
-      headingControllerOut = -headingController241X.Step(delta_t, ground_course);
+      headingControllerOut = headingController241X.Step(delta_t, ground_course);
       Limit(headingControllerOut, bankAngleMax, bankAngleMin);
 
       // Roll Commands
       rollController241X.SetReference(headingControllerOut);
-      rollControllerOut = rollController241X.Step(delta_t, roll); 
+      rollControllerOut = -rollController241X.Step(delta_t, roll); 
       
   }else if (controlMode == FBW_MODE)
   {
@@ -270,12 +270,12 @@ static void AA241X_AUTO_FastLoop(void)
         headingCommand += headingCommand*0.00174*(RC_roll - RC_Roll_Trim)/RC_Roll_Trim; // .0872 rad/s change rate based on 50 Hz
         headingController241X.SetReference(headingCommand);
       }
-      headingControllerOut = -headingController241X.Step(delta_t, ground_course);
+      headingControllerOut = headingController241X.Step(delta_t, ground_course);
       Limit(headingControllerOut, bankAngleMax, bankAngleMin);
 
       // Roll Commands
       rollController241X.SetReference(headingControllerOut);
-      rollControllerOut = rollController241X.Step(delta_t, roll);
+      rollControllerOut = -rollController241X.Step(delta_t, roll);
       
       // Altitude Commands
       float altitude = 1; // Default altitude
